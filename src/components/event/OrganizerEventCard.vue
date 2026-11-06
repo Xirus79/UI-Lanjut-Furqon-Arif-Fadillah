@@ -16,41 +16,39 @@ defineEmits(['view-detail', 'complete', 'delete']);
 </script>
 
 <template>
-<AppCard :class="['organizer-event-card', { 'card-completed': isCompleted }]">
-  <div class="card-header">
-    <span class="category-badge">{{ event.cat }}</span>
-    <span :class="['status-badge', isCompleted ? 'status-completed' : 'status-active']">
-      {{ isCompleted ? 'Completed' : 'Active' }}
-    </span>
-  </div>
+  <AppCard :class="['organizer-event-card', { 'card-completed': isCompleted }]">
+    <div class="card-header">
+      <span class="category-badge">{{ event.cat }}</span>
+      <span :class="['status-badge', isCompleted ? 'status-completed' : 'status-active']">
+        {{ isCompleted ? 'Completed' : 'Active' }}
+      </span>
+    </div>
+    <h3 :class="['event-title', { 'text-strike': isCompleted }]">{{ event.title }}</h3>
+    <p class="event-meta">{{ event.date }} &bull; {{ event.loc }}</p>
+    <p class="event-desc">{{ event.desc }}</p>
+    <div v-if="isCompleted" class="completed-notice">
+      This event has ended and is archived from the public catalog.
+    </div>
 
-  <h3 :class="['event-title', { 'text-strike': isCompleted }]">{{ event.title }}</h3>
-  <p class="event-meta">{{ event.date }} &bull; {{ event.loc }}</p>
-  <p class="event-desc">{{ event.desc }}</p>
-
-  <div v-if="isCompleted" class="completed-notice">
-    This event has ended and is archived from the public catalog.
-  </div>
-
-  <div class="card-actions">
-    <template v-if="!isCompleted">
-      <button class="btn-action btn-detail" @click="$emit('view-detail', event.id)">
-        View Details
-      </button>
-      <button class="btn-action btn-complete" @click="$emit('complete', event)">
-        ✔ Complete Event
-      </button>
-      <button class="btn-action btn-delete" @click="$emit('delete', event)">
-        Delete
-      </button>
-    </template>
-    <template v-else>
-      <button class="btn-action btn-delete" @click="$emit('delete', event)">
-        Delete from Archive
-      </button>
-    </template>
-  </div>
-</AppCard>
+    <div class="card-actions">
+      <template v-if="!isCompleted">
+        <button class="btn-action btn-detail" @click="$emit('view-detail', event.id)">
+          View Details
+        </button>
+        <button class="btn-action btn-complete" @click="$emit('complete', event)">
+          Complete Event
+        </button>
+        <button class="btn-action btn-delete" @click="$emit('delete', event)">
+          Delete
+        </button>
+      </template>
+      <template v-else>
+        <button class="btn-action btn-delete" @click="$emit('delete', event)">
+          Delete from Archive
+        </button>
+      </template>
+    </div>
+  </AppCard>
 </template>
 
 <style scoped>
@@ -157,8 +155,8 @@ defineEmits(['view-detail', 'complete', 'delete']);
 
 .btn-detail:hover {
   background: var(--bg-light);
-  color: var(--primary);
   border-color: var(--primary);
+  color: var(--primary);
 }
 
 .btn-complete {

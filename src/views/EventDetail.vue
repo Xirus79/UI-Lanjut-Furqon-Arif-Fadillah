@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useEvents } from '@/composables/useEvents';
 import AppButton from '@/components/ui/AppButton.vue';
@@ -7,7 +7,7 @@ import AppCard from '@/components/ui/AppCard.vue';
 
 const route = useRoute();
 const router = useRouter();
-const { getEventById, isUserRegistered } = useEvents();
+const { getEventById, isUserRegistered, fetchEventById, loading, error } = useEvents();
 
 // MENGAMBIL DATA EVENT DINAMIS DARI STATE BERDASARKAN ID DI URL
 const event = computed(() => getEventById(route.params.id));
@@ -16,125 +16,138 @@ const event = computed(() => getEventById(route.params.id));
 const isRegistered = computed(() => {
   return event.value ? isUserRegistered(event.value.id) : false;
 });
+
+// PASTIKAN DATA DIAMBIL DARI REST API JIKA USER LANGSUNG MASUK KE URL DETAIL
+onMounted(async () => {
+  if (!event.value) {
+    await fetchEventById(route.params.id);
+  }
+});
 </script>
 
 <template>
-<div class="event-detail-page">
-  <button @click="router.push('/browse/events')" class="btn-back">
-    &larr; Back to Events
-  </button>
+  <div class="event-detail-page">
+    <button @click="router.push('/browse/events')" class="btn-back">
+      &larr; Back to Events
+    </button>
 
-  <!-- KONDISI JIKA EVENT DITEMUKAN -->
-  <div v-if="event">
-    <div class="detail-header">
-      <div class="header-tags">
-        <span class="event-tag">{{ event.cat }}</span>
-        <span v-if="event.done" class="status-tag status-ended">Event Finished</span>
-        <span v-else-if="isRegistered" class="status-tag status-registered">Registered</span>
-        <span v-else-if="event.quota <= 0" class="status-tag status-soldout">Sold Out</span>
-        <span v-else class="status-tag status-live">Open Registration</span>
-      </div>
-
-      <h1>{{ event.title }}</h1>
-
-      <div class="meta-info">
-        <span class="meta-item"><strong>Date:</strong> {{ event.date }}</span>
-        <span class="meta-item"><strong>Location:</strong> {{ event.loc }}</span>
-        <span class="meta-item"><strong>Remaining Quota:</strong> {{ event.quota }} Attendees</span>
-      </div>
+    <!-- LOADING DETAIL ACARA DARI SERVER -->
+    <div v-if="loading" class="detail-header skeleton-shimmer" style="min-height: 180px; display: flex; align-items: center; justify-content: center;">
+      <p style="color: var(--text-muted); font-size: 1.1rem; font-weight: 500;">
+        Memuat rincian acara dari server...
+      </p>
     </div>
 
-    <!-- ASYMMETRICAL LAYOUT -->
-    <div class="detail-content grid-asymmetric">
-      <!-- F-PATTERN: Breaking text with Headings & Paragraphs -->
-      <div class="main-desc">
-        <h2>About This Event</h2>
-        <p class="description-text">
-          {{ event.desc }}
-        </p>
+    <!-- KONDISI 2: DATA EVENT DITEMUKAN -->
+    <div v-else-if="event">
+      <div class="detail-header">
+        <div class="header-tags">
+          <span class="event-tag">{{ event.cat }}</span>
+          <span v-if="event.done" class="status-tag status-ended">Event Finished</span>
+          <span v-else-if="isRegistered" class="status-tag status-registered">Registered</span>
+          <span v-else-if="event.quota <= 0" class="status-tag status-soldout">Sold Out</span>
+          <span v-else class="status-tag status-live">Open Registration</span>
+        </div>
+
+        <h1>{{ event.title }}</h1>
+
+        <div class="meta-info">
+          <span class="meta-item"><strong>Date:</strong> {{ event.date }}</span>
+          <span class="meta-item"><strong>Location:</strong> {{ event.loc }}</span>
+          <span class="meta-item"><strong>Remaining Quota:</strong> {{ event.quota }} Attendees</span>
+        </div>
       </div>
 
-      <!-- FOCAL POINT & STICKY PANE -->
-      <div class="sidebar">
-        <AppCard class="ticket-card sticky-pane">
-          <h3>Event Registration</h3>
-          <p v-if="event.done" class="ticket-desc">
-            Registration is closed as this event has concluded.
+      <!-- ASYMMETRICAL LAYOUT -->
+      <div class="detail-content grid-asymmetric">
+        <!-- F-PATTERN: Breaking text with Headings & Paragraphs -->
+        <div class="main-desc">
+          <h2>About This Event</h2>
+          <p class="description-text">
+            {{ event.desc }}
           </p>
-          <p v-else-if="isRegistered" class="ticket-desc text-success">
-            You are registered for this event. Your booking is confirmed.
-          </p>
-          <p v-else-if="event.quota <= 0" class="ticket-desc text-warning">
-            All seats for this event are currently full.
-          </p>
-          <p v-else class="ticket-desc">
-            Secure your spot now before the remaining quota is filled.
-          </p>
+        </div>
 
-          <!-- BUTTON FOCAL POINT DENGAN HIERARKI STATUS -->
-          <div class="action-buttons">
-            <!-- STATUS 1: SUDAH SELESAI -->
-            <AppButton
-              v-if="event.done"
-              variant="secondary"
-              class="btn-register btn-disabled"
-              disabled
-            >
-              Registration Closed
-            </AppButton>
+        <!-- FOCAL POINT & STICKY PANE -->
+        <div class="sidebar">
+          <AppCard class="ticket-card sticky-pane">
+            <h3>Event Registration</h3>
+            <p v-if="event.done" class="ticket-desc">
+              Registration is closed as this event has concluded.
+            </p>
+            <p v-else-if="isRegistered" class="ticket-desc text-success">
+              You are registered for this event. Your booking is confirmed.
+            </p>
+            <p v-else-if="event.quota <= 0" class="ticket-desc text-warning">
+              All seats for this event are currently full.
+            </p>
+            <p v-else class="ticket-desc">
+              Secure your spot now before the remaining quota is filled.
+            </p>
 
-            <!-- STATUS 2: SUDAH TERDAFTAR -->
-            <div v-else-if="isRegistered" class="registered-action-group">
+            <!-- BUTTON FOCAL POINT DENGAN HIERARKI STATUS -->
+            <div class="action-buttons">
+              <!-- STATUS 1: SUDAH SELESAI -->
               <AppButton
+                v-if="event.done"
                 variant="secondary"
-                class="btn-register btn-registered"
+                class="btn-register btn-disabled"
                 disabled
               >
-                Already Registered
+                Registration Closed
               </AppButton>
-              <router-link :to="'/browse/your-events/' + event.id" class="view-receipt-link">
-                View Your Ticket Receipt &rarr;
-              </router-link>
+
+              <!-- STATUS 2: SUDAH TERDAFTAR -->
+              <div v-else-if="isRegistered" class="registered-action-group">
+                <AppButton
+                  variant="secondary"
+                  class="btn-register btn-registered"
+                  disabled
+                >
+                  Already Registered
+                </AppButton>
+                <router-link :to="'/browse/your-events/' + event.id" class="view-receipt-link">
+                  View Your Ticket Receipt &rarr;
+                </router-link>
+              </div>
+
+              <!-- STATUS 3: KUOTA HABIS -->
+              <AppButton
+                v-else-if="event.quota <= 0"
+                variant="secondary"
+                class="btn-register btn-disabled"
+                disabled
+              >
+                Sold Out
+              </AppButton>
+
+              <!-- STATUS 4: TERSEDIA (NORMAL) -->
+              <AppButton
+                v-else
+                variant="primary"
+                class="btn-register"
+                @click="router.push(`/browse/events/${event.id}/register`)"
+              >
+                Register Now
+              </AppButton>
             </div>
-
-            <!-- STATUS 3: KUOTA HABIS -->
-            <AppButton
-              v-else-if="event.quota <= 0"
-              variant="secondary"
-              class="btn-register btn-disabled"
-              disabled
-            >
-              Sold Out
-            </AppButton>
-
-            <!-- STATUS 4: TERSEDIA (NORMAL) -->
-            <AppButton
-              v-else
-              variant="primary"
-              class="btn-register"
-              @click="router.push(`/browse/events/${event.id}/register`)"
-            >
-              Register Now
-            </AppButton>
-          </div>
-
-          <p v-if="!event.done && !isRegistered && event.quota > 0" class="spots">
-            {{ event.quota }} seats available
-          </p>
-        </AppCard>
+            <p v-if="!event.done && !isRegistered && event.quota > 0" class="spots">
+              {{ event.quota }} seats available
+            </p>
+          </AppCard>
+        </div>
       </div>
     </div>
-  </div>
 
-  <!-- EMPTY STATE IF ID NOT FOUND -->
-  <div v-else class="not-found-card">
-    <h2>404 Event Not Found</h2>
-    <p>The event you are looking for is unavailable or has been removed by the organizer.</p>
-    <AppButton variant="primary" @click="router.push('/browse/events')">
-      Back to Event Catalog
-    </AppButton>
+    <!-- KONDISI 3: EMPTY / ERROR STATE IF ID NOT FOUND -->
+    <div v-else class="not-found-card">
+      <h2>404 Event Not Found</h2>
+      <p>{{ error || 'The event you are looking for is unavailable or has been removed by the organizer.' }}</p>
+      <AppButton variant="primary" @click="router.push('/browse/events')">
+        Back to Event Catalog
+      </AppButton>
+    </div>
   </div>
-</div>
 </template>
 
 <style scoped>
@@ -170,8 +183,8 @@ const isRegistered = computed(() => {
   color: var(--primary);
   padding: var(--space-1) var(--space-4);
   border-radius: 50px;
-  font-size: 0.9rem;
   font-weight: 600;
+  font-size: 0.9rem;
   text-transform: uppercase;
 }
 
@@ -209,21 +222,9 @@ const isRegistered = computed(() => {
   color: var(--text-main);
 }
 
-.meta-info {
-  display: flex;
-  gap: var(--space-6);
-  flex-wrap: wrap;
-}
-
-.meta-item {
-  color: var(--text-muted);
-  font-weight: 500;
-  font-size: 1.05rem;
-}
-
-.meta-item strong {
-  color: var(--text-main);
-}
+.meta-info { display: flex; gap: var(--space-6); flex-wrap: wrap; }
+.meta-item { color: var(--text-muted); font-weight: 500; font-size: 1.05rem; }
+.meta-item strong { color: var(--text-main); }
 
 /* ASYMMETRICAL GRID */
 .grid-asymmetric {
@@ -258,28 +259,10 @@ const isRegistered = computed(() => {
   top: 100px;
 }
 
-.ticket-card h3 {
-  font-size: 1.4rem;
-  margin-bottom: var(--space-3);
-  color: var(--text-main);
-}
-
-.ticket-desc {
-  color: var(--text-muted);
-  margin-bottom: var(--space-6);
-  line-height: 1.5;
-  font-size: 0.95rem;
-}
-
-.ticket-desc.text-success {
-  color: #15803d;
-  font-weight: 500;
-}
-
-.ticket-desc.text-warning {
-  color: #b91c1c;
-  font-weight: 500;
-}
+.ticket-card h3 { font-size: 1.4rem; margin-bottom: var(--space-3); color: var(--text-main); }
+.ticket-desc { color: var(--text-muted); margin-bottom: var(--space-6); line-height: 1.5; font-size: 0.95rem; }
+.ticket-desc.text-success { color: #15803d; font-weight: 500; }
+.ticket-desc.text-warning { color: #b91c1c; font-weight: 500; }
 
 .btn-register {
   width: 100%;
@@ -318,12 +301,7 @@ const isRegistered = computed(() => {
   text-decoration: underline;
 }
 
-.spots {
-  margin-top: var(--space-4);
-  color: #27ae60;
-  font-weight: 600;
-  font-size: 0.95rem;
-}
+.spots { margin-top: var(--space-4); color: #27ae60; font-weight: 600; font-size: 0.95rem; }
 
 .not-found-card {
   text-align: center;
